@@ -32,18 +32,34 @@ class ClassificationModelAPIView(APIView):
         file = request.FILES['file']
         image = Image.open(file)
 
+        # classification image
         predict = self.classification(image)
-        color_detect = self.color_recognition(image)
 
-        clusters = color_detect.get('clusters')
-        color_detect['clusters'] = [self.get_colorName(e) for e in clusters]
-        # colorname = self.get_colorName(color_detect)
-        # print(colorname)
+        # process image
+        image = self.process_image(image)
+
+        # detect color
+        color_detect = self.color_recognition(image)
+        clusters = color_detect.get('names')
+        color_detect['names'] = [self.get_colorName(e) for e in clusters]
 
         return Response({
             'predict': predict,
             'colors': color_detect
         }, status=status.HTTP_200_OK)
+
+    def process_image(self, image):
+        new_width = 224
+
+        image = np.array(image)
+        old_height, old_width = image.shape[:2]
+
+        aspect_ratio = float(new_width) / old_width
+        new_height = int(old_height * aspect_ratio)
+
+        resized_img = cv2.resize(image, (new_width, new_height))
+
+        return resized_img
 
     def classification(self, image):
         result = model(image)
@@ -53,20 +69,22 @@ class ClassificationModelAPIView(APIView):
         i = 0
         for index in result[0].probs.top5:
             current_probs = result[0].probs.top5conf[i].item()
-            if current_probs >= 0.4:
+            if current_probs >= 0.5:
                 names.append(result[0].names[index])
                 probs.append(current_probs)
             i = i + 1
 
+        index = result[0].probs.top1
+        if names.__len__() == 0:
+            names.append(result[0].names[index])
+            probs.append(result[0].probs.top1conf)
         return {
             'names': names,
             'probs': probs
         }
 
     def color_recognition(self, image_file):
-        # image = cv2.cvtColor(np.array(image_file), cv2.COLOR_RGB2BGR)
         image = np.array(image_file) / 255
-        # Reshape the image into a 2D array of pixels
         pixels = image.reshape((-1, 3))
 
         # Define the number of clusters (classes) you want
@@ -81,13 +99,13 @@ class ClassificationModelAPIView(APIView):
         statistic = cluster_sizes * 100 / len(labels)
 
         results = np.where(statistic >= 20)[0]
-        if results.__len__ == 0:
+        if results.__len__() == 0:
             results = [np.argmax(statistic)]
 
         cluster_centers = np.uint8(kmeans.cluster_centers_ * 255)
 
         return {
-            "clusters": cluster_centers[results],
+            "names": cluster_centers[results],
             "probs": statistic[results]
         }
 

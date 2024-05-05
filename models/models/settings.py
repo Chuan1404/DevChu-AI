@@ -38,7 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'rest_framework',
-    'classification_model.apps.ClassificationConfig'
+    'classification_model.apps.ClassificationConfig',
+    'copy_right.apps.CopyRightConfig'
 ]
 
 MIDDLEWARE = [
