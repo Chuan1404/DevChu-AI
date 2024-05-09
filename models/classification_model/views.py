@@ -41,7 +41,13 @@ class ClassificationModelAPIView(APIView):
         # detect color
         color_detect = self.color_recognition(image)
         clusters = color_detect.get('names')
-        color_detect['names'] = [self.get_colorName(e) for e in clusters]
+
+        color_detect['names'] = []
+        color_detect['values'] = []
+        for e in clusters:
+            color_info = self.get_colorName(e)
+            color_detect['names'].append(color_info.get('cname'))
+            color_detect['values'].append(color_info.get('cvalue'))
 
         return Response({
             'predict': predict,
@@ -68,7 +74,7 @@ class ClassificationModelAPIView(APIView):
 
         i = 0
         for index in result[0].probs.top5:
-            current_probs = result[0].probs.top5conf[i].item()
+            current_probs = np.round(result[0].probs.top5conf[i].item(), 2)
             if current_probs >= 0.5:
                 names.append(result[0].names[index])
                 probs.append(current_probs)
@@ -77,7 +83,7 @@ class ClassificationModelAPIView(APIView):
         index = result[0].probs.top1
         if names.__len__() == 0:
             names.append(result[0].names[index])
-            probs.append(result[0].probs.top1conf)
+            probs.append(np.round(result[0].probs.top1conf.item(), 2))
         return {
             'names': names,
             'probs': probs
@@ -96,9 +102,9 @@ class ClassificationModelAPIView(APIView):
 
         labels = kmeans.labels_
         cluster_sizes = np.bincount(labels, minlength=k)
-        statistic = cluster_sizes * 100 / len(labels)
+        statistic = np.round(cluster_sizes / len(labels), 2)
 
-        results = np.where(statistic >= 20)[0]
+        results = np.where(statistic >= 0.2)[0]
         if results.__len__() == 0:
             results = [np.argmax(statistic)]
 
@@ -106,7 +112,7 @@ class ClassificationModelAPIView(APIView):
 
         return {
             "names": cluster_centers[results],
-            "probs": statistic[results]
+            "probs": statistic[results],
         }
 
     def get_colorName(seft, rgb):
@@ -114,7 +120,12 @@ class ClassificationModelAPIView(APIView):
         minimum = 10000
         for i in range(len(csv)):
             d = abs(R - int(csv.loc[i, "R"])) + abs(G - int(csv.loc[i, "G"])) + abs(B - int(csv.loc[i, "B"]))
+
             if (d <= minimum):
                 minimum = d
                 cname = csv.loc[i, "color_name"]
-        return cname
+                cvalue = csv.loc[i, "hex"]
+        return {
+            "cname": cname,
+            "cvalue": cvalue,
+        }
