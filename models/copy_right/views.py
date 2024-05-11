@@ -13,7 +13,6 @@ class CopyRightAPIView(APIView):
 
     def post(self, request):
 
-
         if not request.FILES:
             return Response({
                 "error": "File is not allowed null"
@@ -69,14 +68,16 @@ class CopyRightAPIView(APIView):
         image_buffer = BytesIO()
 
         # Save the modified image to the BytesIO buffer
-        Image.fromarray(original_pixels).save(image_buffer, format=file_extension[1:].upper(), quality=100, subsampling=0)
+        file_upper = file_extension[1:].upper()
+        if file_upper == "JPG":
+            file_upper = "JPEG"
+        Image.fromarray(original_pixels).save(image_buffer, format=file_upper, quality=100, subsampling=0)
 
         # Get the content of the BytesIO buffer
         image_data = image_buffer.getvalue()
 
         # Create an HTTP response with the image data
         response = HttpResponse(image_data, content_type='image/' + file_extension[1:])
-        print(file.name)
         response['Content-Disposition'] = f'attachment; filename="{file.name}"'
         return response
 
@@ -85,6 +86,12 @@ class ExtractCopyRightAPIView(APIView):
         return Response("ok", status=status.HTTP_200_OK)
 
     def post(self, request):
+
+        if not request.FILES:
+            return Response({
+                "error": "File is not allowed null"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         file = request.FILES['file']
         # Load hình ảnh đã ẩn chữ ký
         image = Image.open(file)
@@ -97,10 +104,13 @@ class ExtractCopyRightAPIView(APIView):
         # Chuyển extracted_signature thành mảng NumPy và reshape lại thành kích thước ban đầu của ảnh
         extracted_signature = (last_bits * 255).astype(np.uint8)
 
-        # Tạo ảnh chữ ký trích xuất từ mảng NumPy
-        extracted_signature_image = Image.fromarray(extracted_signature)
-        extracted_signature_image.save("extracted_signature.png")
-        return Response("ok", status=status.HTTP_200_OK)
+        image_buffer = BytesIO()
+
+        Image.fromarray(extracted_signature).save(image_buffer, format="PNG")
+        image_data = image_buffer.getvalue()
+        response = HttpResponse(image_data, content_type='image/png')
+        response['Content-Disposition'] = f'attachment; filename="extracted_signature.png"'
+        return response
 
 # class CopyRightAPIView(APIView):
 #     def post(self, request):

@@ -7,6 +7,7 @@ import numpy as np
 from sklearn.cluster import KMeans
 import cv2
 import pandas as pd
+import json
 
 model = YOLO("yolov8x-cls.pt")
 index=["color","color_name","hex","R","G","B"]
@@ -120,6 +121,39 @@ class ClassificationModelAPIView(APIView):
         minimum = 10000
         for i in range(len(csv)):
             d = abs(R - int(csv.loc[i, "R"])) + abs(G - int(csv.loc[i, "G"])) + abs(B - int(csv.loc[i, "B"]))
+
+            if (d <= minimum):
+                minimum = d
+                cname = csv.loc[i, "color_name"]
+                cvalue = csv.loc[i, "hex"]
+        return {
+            "cname": cname,
+            "cvalue": cvalue,
+        }
+
+class ColorDetectAPIView(APIView):
+    def get(self, request):
+        return Response("ok", status=status.HTTP_200_OK)
+
+    def post(self, request):
+        if not request.POST:
+            return Response({
+                "error": "File is not allowed null"
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        json_string = request.POST['color']
+        color = json.loads(json_string)
+        response = self.get_colorName(color)
+        return Response(response, status=status.HTTP_200_OK)
+
+    def get_colorName(seft, rgb):
+        r = rgb['r']
+        g = rgb['g']
+        b = rgb['b']
+
+        minimum = 10000
+        for i in range(len(csv)):
+            d = abs(r - int(csv.loc[i, "R"])) + abs(g - int(csv.loc[i, "G"])) + abs(b - int(csv.loc[i, "B"]))
 
             if (d <= minimum):
                 minimum = d
